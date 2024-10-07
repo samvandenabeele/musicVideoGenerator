@@ -1,86 +1,98 @@
+import time
 import numpy as np
-import matplotlib.pyplot as plt
+import cv2
 from scipy.io import wavfile
 from pydub import AudioSegment
-from moviepy.editor import ImageSequenceClip, AudioFileClip
+from moviepy.editor import AudioFileClip, VideoFileClip
+from concurrent.futures import ThreadPoolExecutor
 import os
 
-# print progress bar
 def progressbar(progress, total):
-    progress = int(progress)
-    total = int(total)
     percentage = (progress / total) * 100
-    print(f"\r|{'*'*int(percentage)}{"-"*int(100-percentage)}|{progress}/{total}|{percentage:.2f}", end="\r")
+    bar_length = 40
+    filled_length = int(bar_length * progress / total)
+    bar = '*' * filled_length + '-' * (bar_length - filled_length)
+    print(f'\r|{bar}| {progress}/{total} | {percentage:.2f}%', end='\r')
 
-# Convert MP3 to WAV format using pydub
 def mp3_to_wav(mp3_filename):
     audio = AudioSegment.from_mp3(mp3_filename)
     wav_filename = mp3_filename.replace(".mp3", ".wav")
     audio.export(wav_filename, format="wav")
     return wav_filename
 
-# Generate frames from audio file
-def generate_waveform_frames(wav_filename, output_folder, sample_rate=44100, frame_duration=1/24):
-    # Read the WAV file
-    sr, samples = wavfile.read(wav_filename)
+def generate_waveform_frame(samples, width, height):
+    frame = np.zeros((height, width, 3), dtype=np.uint8)
+    for x in range(len(samples) - 1):
+        start_point = (int(x * width / len(samples)), int((1 - samples[x]) * height / 2))
+        end_point = (int((x + 1) * width / len(samples)), int((1 - samples[x + 1]) * height / 2))
+        cv2.line(frame, start_point, end_point, (255, 255, 255), 1)
+    return frame
 
-    # Calculate the number of samples per frame
-    samples_per_frame = int(sample_rate * frame_duration)
-    
-    # Normalize the audio samples for plotting
-    samples = samples / np.max(np.abs(samples), axis=0)
+def frame_generator(wav_filename, sample_rate=44100, frame_rate=24):
+    _, samples = wavfile.read(wav_filename)
+    samples_per_frame = int(sample_rate / frame_rate)
+    samples = samples / np.max(np.abs(samples), axis=0)  # Normalize the samples
+    total_frames = len(samples) // samples_per_frame
+    height, width = 480, 640  # Frame size
 
-    # Create frames for each segment of the audio
-    frame_paths = []
-    progressbar(0, len(samples))
-    for i in range(0, len(samples), samples_per_frame):
-        fig, ax = plt.subplots(figsize=(8, 4))
-        ax.plot(samples[i:i + samples_per_frame])
-        ax.set_xlim([0, samples_per_frame])
-        ax.set_ylim([-1, 1])
-        plt.axis('off')
+    if total_frames == 0:
+        print("Warning: Not enough samples to generate any frames.")
+        return
 
-        # Save the frame as an image
-        frame_path = os.path.join(output_folder, f"frame_{i}.png")
-        plt.savefig(frame_path)
-        plt.close(fig)
-        frame_paths.append(frame_path)
-        progressbar(i, len(samples))
+    for frame_number in range(total_frames):
+        start_idx = frame_number * samples_per_frame
+        end_idx = start_idx + samples_per_frame
+        # print(f"Generating frame {frame_number + 1}/{total_frames}")  # Debugging statement
+        yield generate_waveform_frame(samples[start_idx:end_idx], width, height), frame_number + 1, total_frames
 
-    print("\nFrames generated")
-    return frame_paths
+def create_waveform_video(mp3_filename, frame_gen, output_video_filename, frame_rate=24):
+    try:
+        first_frame, _, _ = next(frame_gen)
+    except StopIteration:
+        print("Error: No frames generated.")
+        return
 
-# Create a video from frames
-def create_waveform_video(mp3_filename, frame_paths, output_video_filename, frame_rate=24):
-    # Generate video clip from image frames
-    clip = ImageSequenceClip(frame_paths, fps=frame_rate)
-    
-    # Add the original audio to the clip
+    height, width, _ = first_frame.shape
+
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter(output_video_filename, fourcc, frame_rate, (width, height))
+
+    frame_count = 0
+    for frame, frame_number, total_frames in frame_gen:
+        progressbar(frame_number, total_frames)
+        out.write(frame)
+        progressbar(frame_number, total_frames)
+        frame_count += 1
+        if np.array_equal(frame, first_frame):
+            print("equal frames")
+        first_frame = frame
+
+    out.release()
+
+    if frame_count == 0:
+        print("Error: No frames were written to the video.")
+        return
+
     audio_clip = AudioFileClip(mp3_filename)
-    final_clip = clip.set_audio(audio_clip)
+    video_clip = VideoFileClip(output_video_filename, audio=False)
 
-    # Write the result to a video file
-    final_clip.write_videofile(output_video_filename, codec="libx264", fps=frame_rate)
+    # Adjust video duration to match the audio duration
+    final_duration = min(audio_clip.duration, video_clip.duration)
+    final_clip = video_clip.set_audio(audio_clip).set_duration(final_duration)
+    
+    final_clip.write_videofile(output_video_filename, codec="libx264", fps=frame_rate, audio_codec='aac')
 
-# Main function
 def generate_waveform_video(mp3_filename, output_video_filename="output_waveform.mp4"):
-    # Step 1: Convert MP3 to WAV
+    if not os.path.isfile(mp3_filename):
+        print(f"Error: The file '{mp3_filename}' does not exist.")
+        return
+
     wav_filename = mp3_to_wav(mp3_filename)
-
-    # Step 2: Create an output folder for frames
-    output_folder = "waveform_frames"
-    os.makedirs(output_folder, exist_ok=True)
-
-    # Step 3: Generate waveform frames
-    frame_paths = generate_waveform_frames(wav_filename, output_folder)
-
-    # Step 4: Create and save the video
-    create_waveform_video(mp3_filename, frame_paths, output_video_filename)
-
-    # Cleanup: Delete frames
-    for frame in frame_paths:
-        os.remove(frame)
+    frames = frame_generator(wav_filename)
+    create_waveform_video(mp3_filename, frames, output_video_filename)
     print(f"Video saved as {output_video_filename}")
 
-# Run the main function with an example MP3 file
-generate_waveform_video(r"C:\Users\SamVandenabeele\OneDrive - Sint-Barbaracollege\Documenten\python\musicVideoGenerator\soundscape.mp3")
+if __name__ == "__main__":
+    mp3_filename = input("Enter the path to the MP3 file: ").strip()
+    generate_waveform_video(mp3_filename)
+    
