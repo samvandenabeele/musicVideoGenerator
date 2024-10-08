@@ -1,4 +1,3 @@
-import time
 import numpy as np
 import cv2
 from scipy.io import wavfile
@@ -29,7 +28,7 @@ def generate_waveform_frame(samples, width, height):
     return frame
 
 def frame_generator(wav_filename, sample_rate=44100, frame_rate=24):
-    _, samples = wavfile.read(wav_filename)
+    sample_rate, samples = wavfile.read(wav_filename)
     samples_per_frame = int(sample_rate / frame_rate)
     samples = samples / np.max(np.abs(samples), axis=0)  # Normalize the samples
     total_frames = len(samples) // samples_per_frame
@@ -63,9 +62,7 @@ def create_waveform_video(mp3_filename, frame_gen, output_video_filename, frame_
         out.write(frame)
         progressbar(frame_number, total_frames)
         frame_count += 1
-        if np.array_equal(frame, first_frame):
-            print("equal frames")
-        first_frame = frame
+
 
     out.release()
 
@@ -74,15 +71,21 @@ def create_waveform_video(mp3_filename, frame_gen, output_video_filename, frame_
         return
 
     audio_clip = AudioFileClip(mp3_filename)
-    video_clip = VideoFileClip(output_video_filename, audio=False)
+    video_clip = VideoFileClip(output_video_filename)
+
+    print(f"Audio duration: {audio_clip.duration}")
+    print(f"Video duration: {video_clip.duration}")
 
     # Adjust video duration to match the audio duration
     final_duration = min(audio_clip.duration, video_clip.duration)
-    final_clip = video_clip.set_audio(audio_clip).set_duration(final_duration)
+    print(f"Final duration: {final_duration}")
+    final_clip = video_clip.set_audio(audio_clip.subclip(0, final_duration))
     
-    final_clip.write_videofile(output_video_filename, codec="libx264", fps=frame_rate, audio_codec='aac')
+    final_clip.write_videofile("soundscape.mp4", codec="libx264", fps=frame_rate, audio_codec='aac', temp_audiofile='temp-audio.m4a', remove_temp=True)
+    os.remove('soundscape.wav')
+    os.remove('output_waveform_temp.mp4')
 
-def generate_waveform_video(mp3_filename, output_video_filename="output_waveform.mp4"):
+def generate_waveform_video(mp3_filename, output_video_filename="output_waveform_temp.mp4"):
     if not os.path.isfile(mp3_filename):
         print(f"Error: The file '{mp3_filename}' does not exist.")
         return
