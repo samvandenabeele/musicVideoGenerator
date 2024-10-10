@@ -10,8 +10,10 @@ def progressbar(progress, total):
     percentage = (progress / total) * 100
     bar_length = 40
     filled_length = int(bar_length * progress / total)
-    bar = '*' * filled_length + '-' * (bar_length - filled_length)
+    bar = '█' * filled_length + '-' * (bar_length - filled_length)
     print(f'\r|{bar}| {progress}/{total} | {percentage:.2f}%', end='\r')
+    if round(percentage, 2) == 100.00:
+        print()
 
 def mp3_to_wav(mp3_filename):
     audio = AudioSegment.from_mp3(mp3_filename)
@@ -20,14 +22,15 @@ def mp3_to_wav(mp3_filename):
     return wav_filename
 
 def generate_waveform_frame(samples, width, height):
-    frame = np.zeros((height, width, 3), dtype=np.uint8)
+    frame = np.zeros((height*2, width*2, 3), dtype=np.uint8)
     for x in range(len(samples) - 1):
-        start_point = (int(x * width / len(samples)), int((1 - samples[x]) * height / 2))
-        end_point = (int((x + 1) * width / len(samples)), int((1 - samples[x + 1]) * height / 2))
+        start_point = (int(x * width * 2 / len(samples)), int((1 - samples[x]) * height))
+        end_point = (int((x + 1) * width * 2 / len(samples)), int((1 - samples[x + 1]) * height))
         cv2.line(frame, start_point, end_point, (255, 255, 255), 1)
+    frame = cv2.resize(frame, (width, height), interpolation=cv2.INTER_LINEAR)
     return frame
 
-def frame_generator(wav_filename, sample_rate=44100, frame_rate=24):
+def frame_generator(wav_filename, sample_rate=44100, frame_rate=12, sub_frame_rate=2):
     sample_rate, samples = wavfile.read(wav_filename)
     samples_per_frame = int(sample_rate / frame_rate)
     samples = samples / np.max(np.abs(samples), axis=0)  # Normalize the samples
@@ -39,29 +42,43 @@ def frame_generator(wav_filename, sample_rate=44100, frame_rate=24):
         return
 
     for frame_number in range(total_frames):
+        subframe_step = samples_per_frame // (sub_frame_rate+1)
+        frames = []
         start_idx = frame_number * samples_per_frame
         end_idx = start_idx + samples_per_frame
-        # print(f"Generating frame {frame_number + 1}/{total_frames}")  # Debugging statement
-        yield generate_waveform_frame(samples[start_idx:end_idx], width, height), frame_number + 1, total_frames
+        
+        frame = generate_waveform_frame(samples[start_idx:end_idx], width, height)
+        frames.append(frame)
 
-def create_waveform_video(mp3_filename, frame_gen, output_video_filename, frame_rate=24):
+        for sub_frame_number in range(sub_frame_rate):
+            start_idx += subframe_step
+            end_idx += subframe_step
+            frame = generate_waveform_frame(samples[start_idx:end_idx], width, height)
+            frames.append(frame)
+
+        yield frames, (frame_number+1)*(sub_frame_rate + 1), total_frames*(sub_frame_rate+1)
+
+def create_waveform_video(mp3_filename, frame_gen, output_video_filename, frame_rate=12, sub_frame_rate=2):
     try:
-        first_frame, _, _ = next(frame_gen)
+        frames, _, _ = next(frame_gen)
     except StopIteration:
         print("Error: No frames generated.")
         return
 
-    height, width, _ = first_frame.shape
-
+    height, width, _ = frames[0].shape
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    out = cv2.VideoWriter(output_video_filename, fourcc, frame_rate, (width, height))
+    out = cv2.VideoWriter(output_video_filename, fourcc, frame_rate*(sub_frame_rate+1), (width, height))
 
     frame_count = 0
-    for frame, frame_number, total_frames in frame_gen:
-        progressbar(frame_number, total_frames)
+    for frame in frames:
         out.write(frame)
-        progressbar(frame_number, total_frames)
         frame_count += 1
+
+    for frames, frame_number, total_frames in frame_gen:
+        for frame in frames:
+            out.write(frame)
+        frame_count += 1
+        progressbar(frame_number, total_frames)
 
 
     out.release()
@@ -81,21 +98,24 @@ def create_waveform_video(mp3_filename, frame_gen, output_video_filename, frame_
     print(f"Final duration: {final_duration}")
     final_clip = video_clip.set_audio(audio_clip.subclip(0, final_duration))
     
-    final_clip.write_videofile("soundscape.mp4", codec="libx264", fps=frame_rate, audio_codec='aac', temp_audiofile='temp-audio.m4a', remove_temp=True)
+    final_clip.write_videofile("soundscape.mp4", codec="libx264", fps=frame_rate*(sub_frame_rate+1), audio_codec='aac', temp_audiofile='temp-audio.m4a', remove_temp=True)
+    video_clip.close()
     os.remove('soundscape.wav')
     os.remove('output_waveform_temp.mp4')
 
-def generate_waveform_video(mp3_filename, output_video_filename="output_waveform_temp.mp4"):
+def generate_waveform_video(mp3_filename, output_video_filename="output_waveform_temp.mp4", frame_rate=12, sub_frame_rate=2):
     if not os.path.isfile(mp3_filename):
         print(f"Error: The file '{mp3_filename}' does not exist.")
         return
 
     wav_filename = mp3_to_wav(mp3_filename)
-    frames = frame_generator(wav_filename)
-    create_waveform_video(mp3_filename, frames, output_video_filename)
+    frames = frame_generator(wav_filename, frame_rate=frame_rate, sub_frame_rate=sub_frame_rate)
+    create_waveform_video(mp3_filename, frames, output_video_filename, frame_rate=frame_rate, sub_frame_rate=sub_frame_rate)
     print(f"Video saved as {output_video_filename}")
 
 if __name__ == "__main__":
     mp3_filename = input("Enter the path to the MP3 file: ").strip()
-    generate_waveform_video(mp3_filename)
+    frame_rate = int(input("Enter the frame rate: ").strip())
+    sub_frame_rate = int(input("Enter the sub-frame rate: ").strip())
+    generate_waveform_video(mp3_filename, frame_rate=frame_rate, sub_frame_rate=sub_frame_rate)
     
