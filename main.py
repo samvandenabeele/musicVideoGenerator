@@ -28,6 +28,7 @@ def generate_waveform_frame(samples, width, height):
         end_point = (int((x + 1) * width * 2 / len(samples)), int((1 - samples[x + 1]) * height))
         cv2.line(frame, start_point, end_point, (255, 255, 255), 1)
     frame = cv2.resize(frame, (width, height), interpolation=cv2.INTER_LINEAR)
+    _, frame = cv2.threshold(frame, 10, 255, cv2.THRESH_BINARY)
     return frame
 
 def frame_generator(wav_filename, sample_rate=44100, frame_rate=12, sub_frame_rate=2):
