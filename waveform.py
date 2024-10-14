@@ -5,6 +5,7 @@ from pydub import AudioSegment
 from moviepy.editor import AudioFileClip, VideoFileClip
 from concurrent.futures import ThreadPoolExecutor
 import os
+from backgrounds import backgrounds as bg
 
 def progressbar(progress, total):
     percentage = (progress / total) * 100
@@ -21,8 +22,9 @@ def mp3_to_wav(mp3_filename):
     audio.export(wav_filename, format="wav")
     return wav_filename
 
-def generate_waveform_frame(samples, width, height):
+def generate_waveform_frame(samples, generator, width, height, fps):
     frame = np.zeros((height*2, width*2, 3), dtype=np.uint8)
+    frame = next(generator)
     for x in range(len(samples) - 1):
         start_point = (int(x * width * 2 / len(samples)), int((1 - samples[x]) * height))
         end_point = (int((x + 1) * width * 2 / len(samples)), int((1 - samples[x + 1]) * height))
@@ -32,11 +34,12 @@ def generate_waveform_frame(samples, width, height):
     return frame
 
 def frame_generator(wav_filename, sample_rate=44100, frame_rate=12, sub_frame_rate=2):
+    height, width = 480, 640  # Frame size
+    bg_gen = bg.background_generator('soundscape.wav', fps=frame_rate * (sub_frame_rate + 1), width=width*2, height=height*2)
     sample_rate, samples = wavfile.read(wav_filename)
     samples_per_frame = int(sample_rate / frame_rate)
     samples = samples / np.max(np.abs(samples), axis=0)  # Normalize the samples
     total_frames = len(samples) // samples_per_frame
-    height, width = 480, 640  # Frame size
 
     if total_frames == 0:
         print("Warning: Not enough samples to generate any frames.")
@@ -48,13 +51,13 @@ def frame_generator(wav_filename, sample_rate=44100, frame_rate=12, sub_frame_ra
         start_idx = frame_number * samples_per_frame
         end_idx = start_idx + samples_per_frame
         
-        frame = generate_waveform_frame(samples[start_idx:end_idx], width, height)
+        frame = generate_waveform_frame(samples[start_idx:end_idx], bg_gen, width, height, fps=frame_rate*(sub_frame_rate+1))
         frames.append(frame)
 
         for sub_frame_number in range(sub_frame_rate):
             start_idx += subframe_step
             end_idx += subframe_step
-            frame = generate_waveform_frame(samples[start_idx:end_idx], width, height)
+            frame = generate_waveform_frame(samples[start_idx:end_idx], bg_gen, width, height, fps=frame_rate*(sub_frame_rate+1))
             frames.append(frame)
 
         yield frames, (frame_number+1)*(sub_frame_rate + 1), total_frames*(sub_frame_rate+1)
@@ -101,6 +104,7 @@ def create_waveform_video(mp3_filename, frame_gen, output_video_filename, frame_
     
     final_clip.write_videofile("soundscape.mp4", codec="libx264", fps=frame_rate*(sub_frame_rate+1), audio_codec='aac', temp_audiofile='temp-audio.m4a', remove_temp=True)
     video_clip.close()
+    bg.close()
     os.remove('soundscape.wav')
     os.remove('output_waveform_temp.mp4')
 
