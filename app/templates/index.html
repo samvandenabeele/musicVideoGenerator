@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>musicVideoGenerator</title>
+    <link rel="stylesheet" href="static/style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        .dragging {
+            border: 2px dashed #000;
+        }
+    </style>
+</head>
+<body>
+    <h1>musicVideoGenerator</h1>
+    <div id="content">
+        <form id="uploadForm" enctype="multipart/form-data">
+            <input type="file" id="fileInput" name="file" multiple>
+            <button type="submit">Upload</button>
+        </form>
+
+        <script>
+            const socket = io();
+
+            const uploadForm = document.getElementById('uploadForm');
+            const fileInput = document.getElementById('fileInput');
+
+            uploadForm.addEventListener('submit', function(event) {
+                event.preventDefault();
+                const files = fileInput.files;
+                if (files.length === 0) {
+                    alert('Please select a file!');
+                    return;
+                }
+                const formData = new FormData();
+                for (let i = 0; i < files.length; i++) {
+                    formData.append('files[]', files[i]);
+                }
+                fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    if (response.redirected) {
+                        window.location.href = response.url;
+                    } else {
+                        return response.json();
+                    }
+                })
+            });
+
+            fileInput.addEventListener('dragover', function(event) {
+                event.preventDefault();
+                event.stopPropagation();
+                fileInput.classList.add('dragging');
+            });
+
+            fileInput.addEventListener('dragleave', function(event) {
+                event.preventDefault();
+                event.stopPropagation();
+                fileInput.classList.remove('dragging');
+            });
+
+            fileInput.addEventListener('drop', function(event) {
+                event.preventDefault();
+                event.stopPropagation();
+                fileInput.classList.remove('dragging');
+                fileInput.files = event.dataTransfer.files;
+            });
+        </script>
+    </div>
+</body>
+</html>

@@ -5,7 +5,7 @@ from pydub import AudioSegment
 from moviepy.editor import AudioFileClip, VideoFileClip
 from concurrent.futures import ThreadPoolExecutor
 import os
-from backgrounds import backgrounds as bg
+from scripts.backgrounds import backgrounds as bg
 
 def progressbar(progress, total):
     percentage = (progress / total) * 100
@@ -35,7 +35,7 @@ def generate_waveform_frame(samples, generator, width, height, fps):
 
 def frame_generator(wav_filename, sample_rate=44100, frame_rate=12, sub_frame_rate=2):
     height, width = 480, 640  # Frame size
-    bg_gen = bg.background_generator('soundscape.wav', fps=frame_rate * (sub_frame_rate + 1), width=width*2, height=height*2)
+    bg_gen = bg.background_generator('data/videos/soundscape.wav', fps=frame_rate * (sub_frame_rate + 1), width=width*2, height=height*2)
     sample_rate, samples = wavfile.read(wav_filename)
     samples_per_frame = int(sample_rate / frame_rate)
     samples = samples / np.max(np.abs(samples), axis=0)  # Normalize the samples
@@ -62,7 +62,7 @@ def frame_generator(wav_filename, sample_rate=44100, frame_rate=12, sub_frame_ra
 
         yield frames, (frame_number+1)*(sub_frame_rate + 1), total_frames*(sub_frame_rate+1)
 
-def create_waveform_video(mp3_filename, frame_gen, output_video_filename, frame_rate=12, sub_frame_rate=2):
+def create_waveform_video(mp3_filename, frame_gen, callback, output_video_filename="data/videos/output.mp4", frame_rate=12, sub_frame_rate=2):
     try:
         frames, _, _ = next(frame_gen)
     except StopIteration:
@@ -71,6 +71,8 @@ def create_waveform_video(mp3_filename, frame_gen, output_video_filename, frame_
 
     height, width, _ = frames[0].shape
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    print(output_video_filename)
+    print(type(output_video_filename))
     out = cv2.VideoWriter(output_video_filename, fourcc, frame_rate*(sub_frame_rate+1), (width, height))
 
     frame_count = 0
@@ -83,6 +85,7 @@ def create_waveform_video(mp3_filename, frame_gen, output_video_filename, frame_
             out.write(frame)
         frame_count += 1
         progressbar(frame_number, total_frames)
+        callback(frame_number, total_frames)
 
 
     out.release()
@@ -105,17 +108,17 @@ def create_waveform_video(mp3_filename, frame_gen, output_video_filename, frame_
     final_clip.write_videofile("soundscape.mp4", codec="libx264", fps=frame_rate*(sub_frame_rate+1), audio_codec='aac', temp_audiofile='temp-audio.m4a', remove_temp=True)
     video_clip.close()
     bg.close()
-    os.remove('soundscape.wav')
-    os.remove('output_waveform_temp.mp4')
+    os.remove('data/videos/soundscape.wav')
+    # os.remove('data/videos/output_waveform_temp.mp4')
 
-def generate_waveform_video(mp3_filename, output_video_filename="output_waveform_temp.mp4", frame_rate=12, sub_frame_rate=2):
+def generate_waveform_video(mp3_filename, callback, output_video_filename="data/videos/output.mp4", frame_rate=12, sub_frame_rate=2):
     if not os.path.isfile(mp3_filename):
         print(f"Error: The file '{mp3_filename}' does not exist.")
         return
 
     wav_filename = mp3_to_wav(mp3_filename)
     frames = frame_generator(wav_filename, frame_rate=frame_rate, sub_frame_rate=sub_frame_rate)
-    create_waveform_video(mp3_filename, frames, output_video_filename, frame_rate=frame_rate, sub_frame_rate=sub_frame_rate)
+    create_waveform_video(mp3_filename, frames, callback, frame_rate=frame_rate, sub_frame_rate=sub_frame_rate)
     print(f"Video saved as {output_video_filename}")
 
 if __name__ == "__main__":
