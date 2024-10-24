@@ -1,18 +1,20 @@
 body {
     font-family: 'Lato', sans-serif;
-    background-color: gainsboro;
+    background-color: #140028;
     align-content: center;
     text-align: center;
 }
 
 #fileInput.dragging {
-    border: 2px dashed #000;
+    border: 2px dashed #14143c;
     background-color: #f0f0f0;
+    width: 70vw;
+    height: 60vh;
 }
 
 #fileInput {
     padding: 20px;
-    border: 2px solid #ccc;
+    border: 2px solid #7828ff;
     border-radius: 4px;
     transition: background-color 0.3s, border 0.3s;
 }
