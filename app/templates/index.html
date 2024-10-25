@@ -16,8 +16,13 @@
     <h1>musicVideoGenerator</h1>
     <div id="content">
         <form id="uploadForm" enctype="multipart/form-data">
-            <input type="file" id="fileInput" name="file" multiple>
-            <button type="submit">Upload</button>
+            <label for="fileInput" class="fileInputLabel" id="fileInputLabel">
+                <button id="selectFileBtn">bestand kiezen</button>
+                <div>geen bestand gekozen</div>
+                <input type="file" id="fileInput" name="file" multiple>
+            </label>
+            <br>
+            <button type="submit" id="uploadButton">Upload</button>
         </form>
 
         <script>
@@ -25,6 +30,7 @@
 
             const uploadForm = document.getElementById('uploadForm');
             const fileInput = document.getElementById('fileInput');
+            const fileInputLabel = document.getElementById('fileInputLabel');
 
             uploadForm.addEventListener('submit', function(event) {
                 event.preventDefault();
@@ -50,23 +56,42 @@
                 })
             });
 
-            fileInput.addEventListener('dragover', function(event) {
+            fileInputLabel.addEventListener('dragover', function(event) {
                 event.preventDefault();
                 event.stopPropagation();
-                fileInput.classList.add('dragging');
+                fileInputLabel.classList.add('dragging');
             });
 
-            fileInput.addEventListener('dragleave', function(event) {
+            fileInputLabel.addEventListener('dragleave', function(event) {
                 event.preventDefault();
                 event.stopPropagation();
-                fileInput.classList.remove('dragging');
+                fileInputLabel.classList.remove('dragging');
             });
 
-            fileInput.addEventListener('drop', function(event) {
+            fileInputLabel.addEventListener('drop', function(event) {
+                console.log('drop');
                 event.preventDefault();
                 event.stopPropagation();
-                fileInput.classList.remove('dragging');
-                fileInput.files = event.dataTransfer.files;
+                fileInputLabel.classList.remove('dragging');
+
+                const files = event.dataTransfer.files;
+                fileInput.files = files;
+
+                const fileName = files.length > 0 ? files[0].name : 'geen bestand gekozen';
+                fileInputLabel.querySelector('div').innerText = fileName;
+                console.log(files);
+            });
+
+            const selectFileBtn = document.getElementById('selectFileBtn');
+
+            selectFileBtn.addEventListener('click', function(event) {
+                event.preventDefault();
+                fileInput.click();
+            });
+
+            fileInput.addEventListener('change', function() {
+                const fileName = fileInput.files.length > 0 ? fileInput.files[0].name : 'geen bestand gekozen';
+                fileInputLabel.querySelector('div').innerText = fileName;
             });
         </script>
     </div>

@@ -8,8 +8,6 @@ app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'data/videos'
 socket = SocketIO(app)
 
-def statusbalk():
-    pass
 
 @app.route('/')
 def index():
@@ -17,10 +15,13 @@ def index():
 
 @app.route("/upload", methods=["POST"])
 def upload():
+    def statusbalk(progress, total):
+        print("Statusbalk progress: ", progress, total)
+
     if 'files[]' not in request.files:
         return jsonify({"message": "No file part in the request"}), 400
-
     files = request.files.getlist('files[]')
+
     if not files:
         return jsonify({"message": "No file selected for uploading"}), 400
 
@@ -32,7 +33,9 @@ def upload():
             if not os.path.exists(file_path):
                 open(file_path, 'a').close()
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            waveform.generate_waveform_video(file_path, 4, 4, callback=statusbalk())
+
+            print(statusbalk)
+            waveform.generate_waveform_video(file_path, 4, 4, statusbalk)
         else:
             return jsonify({"message": f"File type not allowed: {file.filename}"}), 400
     return redirect('/download/output.mp4')

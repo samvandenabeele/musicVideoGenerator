@@ -3,18 +3,50 @@ body {
     background-color: #140028;
     align-content: center;
     text-align: center;
-}
-
-#fileInput.dragging {
-    border: 2px dashed #14143c;
-    background-color: #f0f0f0;
-    width: 70vw;
-    height: 60vh;
+    color: #ffffff;
+    font-size: 25px;
 }
 
 #fileInput {
+    display: none;
+}
+
+.fileInputLabel {
+    border: 2px solid #14143c;
     padding: 20px;
-    border: 2px solid #7828ff;
     border-radius: 4px;
-    transition: background-color 0.3s, border 0.3s;
+    transition: background-color 0.3s, border-color 0.3s, border-width 0.3s;
+    width: 70vw;
+    height: 60vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 0 auto;
+    margin-top: 10vh;
+    text-align: center;
+}
+
+.fileInputLabel.dragging {
+    border: 2px dashed #7828ff;
+    background-color: #070028;
+}
+
+button {
+    background-color: #7828ff;
+    color: #ffffff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    font-size: 1em;
+}
+
+button:hover {
+    background-color: #4c08c2;
+}
+
+div {
+    margin-left: 5px;
+    font-size: 1em;
 }
