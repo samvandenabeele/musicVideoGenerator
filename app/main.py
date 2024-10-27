@@ -2,7 +2,7 @@ from flask import Flask, render_template, send_file, jsonify, request, redirect 
 from flask_socketio import SocketIO # type: ignore
 import os
 from werkzeug.utils import secure_filename # type: ignore
-from scripts import waveform
+from app.scripts import waveform
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'data/videos'
@@ -44,13 +44,12 @@ def upload():
 
 @app.route('/download/<filename>', methods=['GET'])
 def download(filename):
-    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    file_path = os.path.join()
+    file_path = os.path.join("data/videos", filename)
     if os.path.exists(file_path):
         
-        return send_file(file_path, as_attachment=True, mimetype="Content-Type: video/mp4; charset=UTF-8")
+        return send_file(os.path.join("../data/videos", filename), as_attachment=True, mimetype="Content-Type: video/mp4; charset=UTF-8")
     else:
-        return jsonify({"message": "File not found"}), 404
+        return jsonify({"message": "File not found", "path": file_path}), 404
     
 
 def allowed_file(filename):

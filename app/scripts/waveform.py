@@ -5,7 +5,7 @@ from pydub import AudioSegment #type: ignore
 from moviepy.editor import AudioFileClip, VideoFileClip #type: ignore
 from concurrent.futures import ThreadPoolExecutor
 import os
-from scripts.backgrounds import backgrounds as bg
+from app.scripts.backgrounds import backgrounds as bg
 
 def progressbar(progress, total):
     percentage = (progress / total) * 100
@@ -113,7 +113,7 @@ def create_waveform_video(mp3_filename, frame_gen, callback, output_video_filena
     print(f"Final duration: {final_duration}")
     final_clip = video_clip.set_audio(audio_clip.subclip(0, final_duration))
     
-    final_clip.write_videofile("soundscape.mp4", codec="libx264", fps=frame_rate*(sub_frame_rate+1), audio_codec='aac', temp_audiofile='temp-audio.m4a', remove_temp=True)
+    final_clip.write_videofile("data/videos/soundscape.mp4", codec="libx264", fps=frame_rate*(sub_frame_rate+1), audio_codec='aac', temp_audiofile='temp-audio.m4a', remove_temp=True)
     video_clip.close()
     bg.close()
     os.remove('data/videos/soundscape.wav')
