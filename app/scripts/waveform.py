@@ -1,8 +1,8 @@
-import numpy as np
-import cv2
-from scipy.io import wavfile
-from pydub import AudioSegment
-from moviepy.editor import AudioFileClip, VideoFileClip
+import numpy as np #type: ignore
+import cv2 #type: ignore
+from scipy.io import wavfile #type: ignore
+from pydub import AudioSegment #type: ignore
+from moviepy.editor import AudioFileClip, VideoFileClip #type: ignore
 from concurrent.futures import ThreadPoolExecutor
 import os
 from scripts.backgrounds import backgrounds as bg
@@ -18,16 +18,18 @@ def progressbar(progress, total):
 
 def mp3_to_wav(mp3_filename):
     audio = AudioSegment.from_mp3(mp3_filename)
-    wav_filename = mp3_filename.replace(".mp3", ".wav")
+    wav_filename = "data/videos/soundscape.wav"
     audio.export(wav_filename, format="wav")
     return wav_filename
 
 def generate_waveform_frame(samples, generator, width, height, fps):
+    # print(samples)
     frame = np.zeros((height*2, width*2, 3), dtype=np.uint8)
     frame = next(generator)
     for x in range(len(samples) - 1):
-        start_point = (int(x * width * 2 / len(samples)), int((1 - samples[x]) * height))
-        end_point = (int((x + 1) * width * 2 / len(samples)), int((1 - samples[x + 1]) * height))
+        # print(len(samples))
+        start_point = (int(x * width * 2 / len(samples)), int((1 - float(samples[x, 0])) * height))
+        end_point = (int((x + 1) * width * 2 / len(samples)), int((1 - samples[x + 1, 0]) * height))
         cv2.line(frame, start_point, end_point, (255, 255, 255), 1)
     frame = cv2.resize(frame, (width, height), interpolation=cv2.INTER_LINEAR)
     _, frame = cv2.threshold(frame, 10, 255, cv2.THRESH_BINARY)
@@ -35,6 +37,12 @@ def generate_waveform_frame(samples, generator, width, height, fps):
 
 def frame_generator(wav_filename, sample_rate=44100, frame_rate=12, sub_frame_rate=2):
     height, width = 480, 640  # Frame size
+    print("height", type(height))
+    print("width", type(width))
+    print("wav_filename", type(wav_filename))
+    print("sample_rate", type(sample_rate))
+    print("frame_rate", type(frame_rate))
+    print("sub_frame_rate", type(sub_frame_rate))
     bg_gen = bg.background_generator('data/videos/soundscape.wav', fps=frame_rate * (sub_frame_rate + 1), width=width*2, height=height*2)
     sample_rate, samples = wavfile.read(wav_filename)
     samples_per_frame = int(sample_rate / frame_rate)
