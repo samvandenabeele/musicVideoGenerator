@@ -50,3 +50,29 @@ div {
     margin-left: 5px;
     font-size: 1em;
 }
+
+#uploadProgress {
+    /* General styling */
+    width: 70vw;
+    height: 20px;
+    appearance: none; /* Reset to use custom styles */
+    margin-top: 20px;
+}
+
+/* For Chrome, Edge, and Safari */
+#uploadProgress::-webkit-progress-bar {
+    background-color: #4c08c2; /* Background of the bar */
+}
+
+#uploadProgress::-webkit-progress-value {
+    background-color: #7828ff; /* Color of the progress fill */
+}
+
+/* For Firefox */
+#uploadProgress::-moz-progress-bar {
+    background-color: #7828ff; /* Color of the progress fill */
+}
+
+#progress {
+    display: none;
+}

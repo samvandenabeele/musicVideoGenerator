@@ -24,6 +24,10 @@
             <br>
             <button type="submit" id="uploadButton">Upload</button>
         </form>
+        <div id="progress">
+            <progress id="uploadProgress" value="0" max="100" style="color: green;"></progress>
+            <div id="progressDiv">Setting up</div>
+        </div>
 
         <script>
             const socket = io();
@@ -31,6 +35,7 @@
             const uploadForm = document.getElementById('uploadForm');
             const fileInput = document.getElementById('fileInput');
             const fileInputLabel = document.getElementById('fileInputLabel');
+            const progress = document.getElementById('progress');
 
             uploadForm.addEventListener('submit', function(event) {
                 event.preventDefault();
@@ -43,6 +48,10 @@
                 for (let i = 0; i < files.length; i++) {
                     formData.append('files[]', files[i]);
                 }
+
+                uploadForm.style.display = 'none';
+                progress.style.display = 'block';
+
                 fetch('/upload', {
                     method: 'POST',
                     body: formData
@@ -92,6 +101,19 @@
             fileInput.addEventListener('change', function() {
                 const fileName = fileInput.files.length > 0 ? fileInput.files[0].name : 'geen bestand gekozen';
                 fileInputLabel.querySelector('div').innerText = fileName;
+            });
+
+            socket.on('progress', function(data) {
+                const progress = document.getElementById('uploadProgress');
+                const progressDiv = document.getElementById('progressDiv');
+
+                document.getElementById("progress").style.display = 'block';
+
+                console.log(data.progress, data.total, data.progress / data.total);
+
+                progress.value = (data.progress / data.total) * 100;
+
+                progressDiv.innerText = progress.value + '%';
             });
         </script>
     </div>
