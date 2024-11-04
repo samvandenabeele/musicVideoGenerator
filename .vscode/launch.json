@@ -1,0 +1,31 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python Debugger: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Attach to Flask app in Docker",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+                "host": "localhost",  // or the Docker host IP
+                "port": 5678          // must match the port debugpy is listening on
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}",  // Path to your code on the host machine
+                    "remoteRoot": "/app"
+                                    // Path to your code in the Docker container
+                }
+            ]
+        }
+    ]
+}
