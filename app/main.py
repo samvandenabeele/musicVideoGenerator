@@ -1,18 +1,24 @@
+import debugpy.adapter
 from flask import Flask, render_template, send_file, jsonify, request, redirect, session # type: ignore
 from flask_socketio import SocketIO, emit # type: ignore
 import os
 from werkzeug.utils import secure_filename # type: ignore
 from app.scripts import waveform
 import random, string
-from threading import Thread, Lock
-from time import sleep
+from threading import Lock
+import debugpy
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'data/videos'
-socketio = SocketIO(app)
+socketio = SocketIO(app, engineio_logger=True, logger=True)
 
 app.secret_key = "".join(random.choices(string.ascii_uppercase + string.digits, k=10))
 file_lock = Lock()
+
+print("Waiting for debugger attach", flush=True)
+debugpy.listen(("0.0.0.0", 5612))
+debugpy.wait_for_client()
+print("Debugger attached", flush=True)
 
 @app.route('/')
 def index():

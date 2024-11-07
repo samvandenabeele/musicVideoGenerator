@@ -6,6 +6,12 @@ services:
       
     container_name: musicVideoGenerator
     
+    environment:
+      - GEVENT_SUPPORT=True
+
     ports:
       - 5000:80
+      - 5612:5612
     restart: unless-stopped
+
+    command: "python -Xfrozen_modules=off -m gunicorn -w 1 --threads 4 -t 0 -b 0.0.0.0:80 --worker-class gevent app.main:app"
