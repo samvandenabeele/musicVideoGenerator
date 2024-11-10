@@ -6,14 +6,6 @@ from moviepy.editor import AudioFileClip, VideoFileClip #type: ignore
 import os
 from app.scripts.backgrounds import backgrounds as bg
 
-def progressbar(progress, total):
-    percentage = (progress / total) * 100
-    bar_length = 40
-    filled_length = int(bar_length * progress / total)
-    bar = '█' * filled_length + '-' * (bar_length - filled_length)
-    print(f'\r|{bar}| {progress}/{total} | {percentage:.2f}%', end='\r')
-    if round(percentage, 2) == 100.00:
-        print()
 
 def mp3_to_wav(mp3_filename):
     audio = AudioSegment.from_mp3(mp3_filename)
@@ -40,7 +32,6 @@ def frame_generator(wav_filename, callback, sample_rate=44100, frame_rate=12, su
     total_frames = len(samples) // samples_per_frame
 
     if total_frames == 0:
-        print("Warning: Not enough samples to generate any frames.")
         return
 
     for frame_number in range(total_frames):
@@ -56,7 +47,6 @@ def frame_generator(wav_filename, callback, sample_rate=44100, frame_rate=12, su
         for sub_frame_number in range(sub_frame_rate):
             start_idx += subframe_step
             end_idx += subframe_step
-            print(f"start_idx: {start_idx}, end_idx: {end_idx}")
             frame = generate_waveform_frame(samples[start_idx:end_idx], bg_gen, width, height, fps=frame_rate*(sub_frame_rate+1))
             frames.append(frame)
 
@@ -71,14 +61,14 @@ def create_waveform_video(mp3_filename, frame_gen, callback, output_video_filena
 
     height, width, _ = frames[0].shape
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    out = cv2.VideoWriter(output_video_filename, fourcc, frame_rate*(sub_frame_rate+1), (width, height))
+    out = cv2.VideoWriter(output_video_filename[:-4] + "temp" + output_video_filename[-4:], fourcc, frame_rate * (sub_frame_rate + 1), (width, height))
 
     frame_count = 0
     for frame in frames:
         out.write(frame)
     frame_count += 1
-    for frames, frame_number, total_frames in frame_gen:
-        for frame in frames:
+    for new_frames, frame_number, total_frames in frame_gen:
+        for frame in new_frames:
             out.write(frame)
         frame_count += 1
         callback(frame_number, total_frames)
@@ -90,29 +80,25 @@ def create_waveform_video(mp3_filename, frame_gen, callback, output_video_filena
         return
 
     audio_clip = AudioFileClip(mp3_filename)
-    video_clip = VideoFileClip(output_video_filename)
+    video_clip = VideoFileClip(output_video_filename[:-4] + "temp" + output_video_filename[-4:])
 
     final_duration = min(audio_clip.duration, video_clip.duration)
-    final_clip = video_clip.set_audio(audio_clip.subclip(0, final_duration))
+    video_clip = video_clip.set_audio(audio_clip.subclip(0, final_duration))
+
+    video_clip.write_videofile(output_video_filename, codec="libx264", fps=frame_rate*(sub_frame_rate+1), audio_codec='aac', temp_audiofile='temp-audio.m4a', remove_temp=True)
+    for path in os.listdir("data/videos"):
+        if output_video_filename[:-4] in path:
+            if path != output_video_filename:
+                os.remove(os.path.join("data/videos", path))
     video_clip.close()
-
-
-    final_clip.write_videofile(output_video_filename, codec="libx264", fps=frame_rate*(sub_frame_rate+1), audio_codec='aac', temp_audiofile='temp-audio.m4a', remove_temp=True)
-    # audio_clip.close()
-    # bg.close()
-    os.remove(mp3_filename)
 
 def generate_waveform_video(mp3_filename, callback, output_video_filename="data/videos/output.mp4", frame_rate=12, sub_frame_rate=2):
     if not os.path.isfile(mp3_filename):
         print(f"Error: The file '{mp3_filename}' does not exist.")
         return
 
-    print("converting mp3 to wav", flush=True)
     wav_filename = mp3_to_wav(mp3_filename)
-    print("generating generator", flush=True)
     frames = frame_generator(wav_filename, callback=callback, frame_rate=frame_rate, sub_frame_rate=sub_frame_rate)
-    print("creating video", flush=True)
     create_waveform_video(mp3_filename, frames, callback, output_video_filename=output_video_filename, frame_rate=frame_rate, sub_frame_rate=sub_frame_rate)
-    print(f"Video saved as {output_video_filename}")
 
     return

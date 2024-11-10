@@ -15,10 +15,10 @@ socketio = SocketIO(app, engineio_logger=True, logger=True)
 app.secret_key = "".join(random.choices(string.ascii_uppercase + string.digits, k=10))
 file_lock = Lock()
 
-print("Waiting for debugger attach", flush=True)
-debugpy.listen(("0.0.0.0", 5612))
-debugpy.wait_for_client()
-print("Debugger attached", flush=True)
+# print("Waiting for debugger attach", flush=True)
+# debugpy.listen(("0.0.0.0", 5612))
+# debugpy.wait_for_client()
+# print("Debugger attached", flush=True)
 
 @app.route('/')
 def index():
