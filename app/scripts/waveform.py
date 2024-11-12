@@ -14,8 +14,7 @@ def mp3_to_wav(mp3_filename):
     return wav_filename
 
 def generate_waveform_frame(samples, generator, width, height, fps):
-    # frame = next(generator)
-    frame = np.zeros((height*2, width*2, 3), dtype=np.uint8)
+    frame = next(generator)
     for x in range(len(samples) - 1):
         start_point = (int(x * width * 2 / len(samples)), int((1 - float(samples[x, 0])) * height))
         end_point = (int((x + 1) * width * 2 / len(samples)), int((1 - samples[x + 1, 0]) * height))

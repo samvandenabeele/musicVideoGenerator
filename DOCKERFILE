@@ -9,3 +9,9 @@ RUN pip install --no-cache-dir --upgrade -r requirements.txt
 RUN apt-get update && apt-get install -y ffmpeg
 
 COPY . .
+
+EXPOSE 80
+
+ENV GEVENT_SUPPORT=True
+
+CMD ["python", "-Xfrozen_modules=off", "-m", "gunicorn", "-w", "1", "--threads", "4", "-t", "0", "-b", "0.0.0.0:80", "--worker-class", "gevent", "app.main:app"]
