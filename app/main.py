@@ -24,8 +24,11 @@ def upload():
     def callback(progress, total):
         socketio.emit("progress", {"progress": progress, "total": total}, namespace='/')
         socketio.sleep(0)  # Yield to the event loop to ensure the emit is processed
-
-    session["filename"] = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
+    
+    while True:
+        session["filename"] = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
+        if not any(session["filename"] in f for f in os.listdir(app.config['UPLOAD_FOLDER'])):
+            break
 
     if 'files[]' not in request.files:
         return jsonify({"message": "No file part in the request"}), 400
