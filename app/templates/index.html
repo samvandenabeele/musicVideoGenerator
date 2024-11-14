@@ -118,6 +118,13 @@
     <div id="thankyou" style="display: none;">
         <h2>Thanks for using musicVideoGenerator!</h2>
         <p><small>created by Sam Vandenabeele, hosted by bytebite</small></p>
+        <button id="continue">continue</button>
     </div>
+    <script>
+        button = document.getElementById('continue');
+        button.addEventListener('click', function() {
+            window.location.href = '/';
+        });
+    </script>
 </body>
 </html>
