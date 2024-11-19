@@ -19,9 +19,16 @@ def index():
 
 @app.route("/upload", methods=["POST"])
 def upload():
-    def callback(progress, total):
-        socketio.emit("progress", {"progress": progress, "total": total}, namespace='/')
-        socketio.sleep(0)  # Yield to the event loop to ensure the emit is processed
+    def callback(progress, total, action_name):
+        """
+        Callback function to emit progress to the client
+        
+        :param int progress: current progress
+        :param int total: total of the action
+        :param int action_name: name of the action
+        """
+        socketio.emit("progress", {"progress": progress, "total": total, "name": action_name}, namespace='/')
+        socketio.sleep(0)
     
     while True:
         session["filename"] = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
@@ -55,6 +62,16 @@ def download(filename):
         return send_file(os.path.join("../data/videos", filename), as_attachment=True, mimetype="Content-Type: video/mp4; charset=UTF-8")
     else:
         return jsonify({"message": "File not found", "path": file_path}), 404
+
+@socketio.on('disconnect', namespace='/')
+def disconnect():
+    for file in os.listdir("data/videos"):
+        try:
+            if (session['filename'] in file):
+                os.remove(os.path.join("data/videos", file))
+        except:
+            print(f"Error: Could not delete file {file}.", flush=True)
+    session.clear()
 
 def allowed_file(filename):
     ALLOWED_EXTENSIONS = {'mp3'}

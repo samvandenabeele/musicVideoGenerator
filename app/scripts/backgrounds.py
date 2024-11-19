@@ -33,7 +33,9 @@ class backgrounds:
             current_time = i / fps
             if any(abs(current_time - beat_time) < 1/fps for beat_time in beat_times):
                 frame[:] = (randrange(255), randrange(255), randrange(255))
-            yield frame 
+            yield frame
+        
+        audio_clip.close()
 
     def close():
         audio_clip.close()

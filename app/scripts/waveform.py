@@ -7,10 +7,14 @@ import os
 from app.scripts.backgrounds import backgrounds as bg
 
 
-def mp3_to_wav(mp3_filename):
+def mp3_to_wav(mp3_filename, callback):
     audio = AudioSegment.from_mp3(mp3_filename)
+    callback(1, 3, "converting mp3 to wav")
     wav_filename = mp3_filename.replace('.mp3', '.wav')
+    callback(2, 3, "converting mp3 to wav")
     audio.export(wav_filename, format="wav")
+    callback(3, 3, "converting mp3 to wav")
+    del audio
     return wav_filename
 
 def generate_waveform_frame(samples, generator, width, height, fps):
@@ -41,7 +45,6 @@ def frame_generator(wav_filename, callback, sample_rate=44100, frame_rate=12, su
         
         frame = generate_waveform_frame(samples[start_idx:end_idx], bg_gen, width, height, fps=frame_rate*(sub_frame_rate+1))
         frames.append(frame)
-        callback(frame_number+1, total_frames)
 
         for sub_frame_number in range(sub_frame_rate):
             start_idx += subframe_step
@@ -70,7 +73,7 @@ def create_waveform_video(mp3_filename, frame_gen, callback, output_video_filena
         for frame in new_frames:
             out.write(frame)
         frame_count += 1
-        callback(frame_number, total_frames)
+        callback(frame_number+1, total_frames, "generating frames")
 
     out.release()
 
@@ -85,10 +88,14 @@ def create_waveform_video(mp3_filename, frame_gen, callback, output_video_filena
     video_clip = video_clip.set_audio(audio_clip.subclip(0, final_duration))
 
     video_clip.write_videofile(output_video_filename, codec="libx264", fps=frame_rate*(sub_frame_rate+1), audio_codec='aac', temp_audiofile='temp-audio.m4a', remove_temp=True)
-    for path in os.listdir("data/videos"):
-        if output_video_filename[:-4] in path:
-            if path != output_video_filename:
-                os.remove(os.path.join("data/videos", path))
+    file_directorys = os.listdir("data/videos")
+    print(file_directorys)
+    for file in file_directorys:
+        try:
+            if file != os.path.basename(output_video_filename):
+                os.remove(os.path.join("data/videos", file))
+        except:
+            print(f"Error: Could not delete file {file}.", flush=True)
     video_clip.close()
 
 def generate_waveform_video(mp3_filename, callback, output_video_filename="data/videos/output.mp4", frame_rate=12, sub_frame_rate=2):
@@ -96,7 +103,7 @@ def generate_waveform_video(mp3_filename, callback, output_video_filename="data/
         print(f"Error: The file '{mp3_filename}' does not exist.")
         return
 
-    wav_filename = mp3_to_wav(mp3_filename)
+    wav_filename = mp3_to_wav(mp3_filename, callback)
     frames = frame_generator(wav_filename, callback=callback, frame_rate=frame_rate, sub_frame_rate=sub_frame_rate)
     create_waveform_video(mp3_filename, frames, callback, output_video_filename=output_video_filename, frame_rate=frame_rate, sub_frame_rate=sub_frame_rate)
 
