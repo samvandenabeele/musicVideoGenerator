@@ -4,7 +4,9 @@ import os
 from werkzeug.utils import secure_filename # type: ignore
 from app.scripts import waveform
 import random, string
-from threading import Lock
+from threading import Lock, Thread
+from queue import Queue
+
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'data/videos'
@@ -13,6 +15,25 @@ socketio = SocketIO(app, engineio_logger=True, logger=True, cors_allowed_origins
 app.secret_key = "".join(random.choices(string.ascii_uppercase + string.digits, k=10))
 file_lock = Lock()
 
+class queue:
+    def __init__(self):
+        self.queue = Queue()
+
+    def add_to_queue(self, item):
+        self.queue.put(item)
+
+    def worker(self):
+        while True:
+            if not self.queue.is_empty():
+                task = self.queue.get()
+                # task[0] is mp3 filename, task[1] is callback
+                waveform.generate_waveform_video(task[0], task[1], task[0][:-4]+".mp4", 4, 4)
+
+                
+
+    worker_thread = Thread(target=worker)
+    worker_thread.daemon = True
+    worker_thread.start()
 @app.route('/')
 def index():
     return render_template('index.html')
