@@ -4,6 +4,8 @@ import os
 from werkzeug.utils import secure_filename # type: ignore
 from app.scripts import waveform
 import random, string
+from eventlet import monkey_patch
+monkey_patch()
 from threading import Lock, Thread
 from queue import Queue
 
@@ -15,25 +17,29 @@ socketio = SocketIO(app, engineio_logger=True, logger=True, cors_allowed_origins
 app.secret_key = "".join(random.choices(string.ascii_uppercase + string.digits, k=10))
 file_lock = Lock()
 
-class queue:
-    def __init__(self):
-        self.queue = Queue()
+job_queue = Queue()
 
-    def add_to_queue(self, item):
-        self.queue.put(item)
+def worker():
+    while True:
+        job = job_queue.get()
+        if job is None:
+            break
 
-    def worker(self):
-        while True:
-            if not self.queue.is_empty():
-                task = self.queue.get()
-                # task[0] is mp3 filename, task[1] is callback
-                waveform.generate_waveform_video(task[0], task[1], task[0][:-4]+".mp4", 4, 4)
+        try:
+            callback = job[1]
+            file_path = job[0]
+        except Exception as e:
+            print(f"Error: Could not get job parameters. {e}", flush=True)
+            continue
+        print(f"Processing {file_path}", flush=True)
+        
+        waveform.generate_waveform_video(file_path, callback, output_video_filename=file_path[:-4]+".mp4", frame_rate=4, sub_frame_rate=4)
+        socketio.emit("done", {"filename": os.path.basename(file_path)[:-4]+".mp4"}, namespace='/')
 
-                
+def queue_add(file_path, callback):
+    job_queue.put((file_path, callback))
 
-    worker_thread = Thread(target=worker)
-    worker_thread.daemon = True
-    worker_thread.start()
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -71,10 +77,12 @@ def upload():
             if not os.path.exists(file_path):
                 open(file_path, 'a').close()
             file.save(file_path)
-            waveform.generate_waveform_video(file_path, callback, os.path.join(app.config['UPLOAD_FOLDER'], session['filename'] + ".mp4"), 4, 4)
+            # waveform.generate_waveform_video(file_path, callback, os.path.join(app.config['UPLOAD_FOLDER'], session['filename'] + ".mp4"), 4, 4)
+            queue_add(file_path, callback)
         else:
             return jsonify({"message": f"File type not allowed: {file.filename}"}), 400
-    return redirect("/download/" + session['filename'] + ".mp4")
+    # return redirect("/download/" + session['filename'] + ".mp4")
+    return jsonify("started")
 
 @app.route('/download/<filename>', methods=['GET'])
 def download(filename):
@@ -99,4 +107,5 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 if __name__ == '__main__':
+    Thread(target=worker, daemon=True).start()
     socketio.run(app, debug=True)
