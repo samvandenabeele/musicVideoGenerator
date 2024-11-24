@@ -1,17 +1,54 @@
-from flask import Flask, render_template, send_file, jsonify, request, redirect, session # type: ignore
+from flask import Flask, render_template, send_file, jsonify, request, session # type: ignore
 from flask_socketio import SocketIO, emit # type: ignore
 import os
 from werkzeug.utils import secure_filename # type: ignore
 from app.scripts import waveform
 import random, string
-from threading import Lock
+from threading import Lock, Thread
+from queue import Queue
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'data/videos'
-socketio = SocketIO(app, engineio_logger=True, logger=True, cors_allowed_origins="*")
+socketio = SocketIO(app, engineio_logger=True, logger=True, cors_allowed_origins="*", async_mode='threading')
 
 app.secret_key = "".join(random.choices(string.ascii_uppercase + string.digits, k=10))
 file_lock = Lock()
+
+job_queue = Queue()
+
+def worker():
+    while True:
+        job = job_queue.get()
+        if job is None:
+            break
+
+        try:
+            sid = job[1]
+            file_path = job[0]
+
+        except Exception as e:
+            print(f"Error: Could not get job parameters. {e}", flush=True)
+            continue
+
+        def callback(progress, total, action_name):
+            """
+            Callback function to emit progress to the client
+            
+            :param int progress: current progress
+            :param int total: total of the action
+            :param int action_name: name of the action
+            """
+            socketio.emit("progress", {"progress": progress, "total": total, "name": action_name}, namespace='/', to=sid)
+            socketio.sleep(0)
+
+        print(f"Processing {file_path}", flush=True)
+        
+        waveform.generate_waveform_video(file_path, callback, output_video_filename=file_path[:-4]+".mp4", frame_rate=4, sub_frame_rate=4)
+        socketio.emit("done", {"url": "/download/" + os.path.basename(file_path)[:-4] + ".mp4"}, namespace='/', to=sid)
+
+def queue_add(file_path, callback):
+    job_queue.put((file_path, callback))
+
 
 @app.route('/')
 def index():
@@ -19,16 +56,6 @@ def index():
 
 @app.route("/upload", methods=["POST"])
 def upload():
-    def callback(progress, total, action_name):
-        """
-        Callback function to emit progress to the client
-        
-        :param int progress: current progress
-        :param int total: total of the action
-        :param int action_name: name of the action
-        """
-        socketio.emit("progress", {"progress": progress, "total": total, "name": action_name}, namespace='/')
-        socketio.sleep(0)
     
     while True:
         session["filename"] = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
@@ -50,10 +77,12 @@ def upload():
             if not os.path.exists(file_path):
                 open(file_path, 'a').close()
             file.save(file_path)
-            waveform.generate_waveform_video(file_path, callback, os.path.join(app.config['UPLOAD_FOLDER'], session['filename'] + ".mp4"), 4, 4)
+            # waveform.generate_waveform_video(file_path, callback, os.path.join(app.config['UPLOAD_FOLDER'], session['filename'] + ".mp4"), 4, 4)
+            queue_add(file_path, request.args.get('sid'))
         else:
             return jsonify({"message": f"File type not allowed: {file.filename}"}), 400
-    return redirect("/download/" + session['filename'] + ".mp4")
+    # return redirect("/download/" + session['filename'] + ".mp4")
+    return jsonify("started")
 
 @app.route('/download/<filename>', methods=['GET'])
 def download(filename):
@@ -78,4 +107,5 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True)
+    Thread(target=worker, daemon=True).start()
+    socketio.run(app, host='0.0.0.0', port=80, allow_unsafe_werkzeug=True)
