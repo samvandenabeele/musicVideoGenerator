@@ -13,7 +13,7 @@
     </style>
 </head>
 <body>
-    <h1>musicVideoGenerator <small>v1.3</small></h1>
+    <h1>musicVideoGenerator <small>v2.0</small></h1>
     <div id="content">
         <form id="uploadForm" enctype="multipart/form-data">
             <label for="fileInput" class="fileInputLabel" id="fileInputLabel">
@@ -112,6 +112,13 @@
                 progress.value = Math.round((data.progress / data.total) * 100);
                 
                 progressDiv.innerText = data.name + " " + progress.value + '%';
+            });
+
+            socket.on("done", function(data) {
+                document.getElementById('content').style.display = 'none';
+                document.getElementById('thankyou').style.display = 'block';
+                window.location.href = data.url;
+                // console.log(data.url);
             });
             </script>
     </div>
